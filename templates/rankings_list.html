@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Управління рейтингами - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4 text-light">
+                <i class="bi bi-trophy"></i> Управління рейтингами
+            </h1>
+        </div>
+    </div>
+
+    <!-- Statistics Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="bi bi-bar-chart"></i> Статистика рейтингів
+                    </h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h3 class="text-success">{{ rankings|length }}</h3>
+                                <small class="text-muted">Всього рейтингів</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h3 class="text-warning">{{ rankings|selectattr('ranking.is_active')|list|length }}</h3>
+                                <small class="text-muted">Активних рейтингів</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title text-info">
+                        <i class="bi bi-plus-circle"></i> Швидкі дії
+                    </h5>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.ranking') }}" class="btn btn-success">
+                            <i class="bi bi-plus"></i> Створити новий рейтинг
+                        </a>
+                        <a href="{{ url_for('main.filter_companies_route') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-funnel"></i> Фільтрувати компанії
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rankings List -->
+    <div class="card bg-dark border-secondary">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-list"></i> Список рейтингів
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if rankings %}
+            <div class="table-responsive">
+                <table class="table table-hover table-dark">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Назва рейтингу</th>
+                            <th>Компаній</th>
+                            <th>Критерії відбору</th>
+                            <th>Перша компанія</th>
+                            <th>Дата створення</th>
+                            <th>Статус</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in rankings %}
+                        <tr>
+                            <td><code>{{ item.ranking.id }}</code></td>
+                            <td><strong>{{ item.ranking.name }}</strong></td>
+                            <td>
+                                <span class="badge bg-primary">{{ item.ranking.companies_count or 0 }} компаній</span>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% if item.selection_base %}
+                                        Працівників ≥ {{ item.selection_base.min_employees or '-' }}<br>
+                                        Дохід ≥ {{ "{:,}".format(item.selection_base.min_revenue) if item.selection_base.min_revenue else '-' }}<br>
+                                        Прибуток ≥ {{ "{:,}".format(item.selection_base.min_profit) if item.selection_base.min_profit else '-' }}
+                                    {% else %}
+                                        <span class="text-warning">Невідомо</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ item.first_company_name }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ item.ranking.created_at.strftime('%d.%m.%Y %H:%M') if item.ranking.created_at else '-' }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if item.ranking.is_active %}
+                                    <span class="badge bg-success">Активний</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Неактивний</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.view_ranking', ranking_id=item.ranking.id) }}" 
+                                       class="btn btn-outline-primary" title="Переглянути рейтинг">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('main.export_ranking_pdf', ranking_id=item.ranking.id) }}" 
+                                       class="btn btn-outline-danger" title="Експорт в PDF">
+                                        <i class="bi bi-filetype-pdf"></i>
+                                    </a>
+                                    {% if current_user.has_permission('edit') %}
+                                    <button class="btn btn-outline-warning" 
+                                            onclick="archiveRanking({{ item.ranking.id }})" 
+                                            title="Архівувати рейтинг">
+                                        <i class="bi bi-archive"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-trophy text-muted" style="font-size: 3rem;"></i>
+                <h4 class="text-muted mt-3">Рейтингів поки немає</h4>
+                <p class="text-muted">Створіть свій перший рейтинг, щоб побачити компанії тут</p>
+                <a href="{{ url_for('main.ranking') }}" class="btn btn-primary">
+                    <i class="bi bi-plus"></i> Створити рейтинг
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Archive ranking function
+function archiveRanking(rankingId) {
+    if (confirm('Ви впевнені, що хочете архівувати цей рейтинг?')) {
+        fetch(`/api/rankings/${rankingId}/archive`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Помилка архівування: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Помилка архівування рейтингу');
+        });
+    }
+}
+</script>
+{% endblock %}

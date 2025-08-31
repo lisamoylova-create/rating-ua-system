@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}Компанії - Система обробки даних компаній{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+            <h1 class="mb-3 mb-md-0"><i class="bi bi-building"></i> Компанії</h1>
+            <div class="d-flex flex-column flex-md-row gap-2 w-100 w-md-auto">
+                <a href="{{ url_for('main.upload') }}" class="btn btn-success">
+                    <i class="bi bi-arrow-clockwise"></i> <span class="d-none d-lg-inline">Актуалізувати (Крок 2)</span><span class="d-lg-none">Актуалізувати</span>
+                </a>
+                <a href="{{ url_for('main.filter_companies_route') }}" class="btn btn-warning">
+                    <i class="bi bi-funnel"></i> <span class="d-none d-lg-inline">Створити рейтинг</span><span class="d-lg-none">Рейтинг</span>
+                </a>
+                <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                    <i class="bi bi-upload"></i> <span class="d-none d-lg-inline">Завантажити файли</span><span class="d-lg-none">Файли</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="bi bi-funnel"></i> Фільтри та сортування
+            <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </h6>
+    </div>
+    <div class="collapse show" id="filtersCollapse">
+        <div class="card-body">
+            <form method="GET">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="search_edrpou" class="form-label">Пошук за кодом ЄДРПОУ</label>
+                        <div class="input-group">
+                            <input type="text" name="search_edrpou" id="search_edrpou" class="form-control" 
+                                   placeholder="Введіть код ЄДРПОУ..." value="{{ current_filters.search_edrpou or '' }}">
+                            <button type="submit" class="btn btn-outline-primary">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2 mb-3">
+                        <label for="region_id" class="form-label">Регіон</label>
+                        <select class="form-select" id="region_name" name="region_name">
+                            <option value="">Всі регіони</option>
+                            {% for region in regions %}
+                            <option value="{{ region }}" {% if current_filters.region_name == region %}selected{% endif %}>
+                                {{ region }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 mb-3">
+                        <label for="kved_id" class="form-label">КВЕД</label>
+                        <select class="form-select" id="kved_code" name="kved_code">
+                            <option value="">Всі КВЕД</option>
+                            {% for kved in kveds %}
+                            <option value="{{ kved }}" {% if current_filters.kved_code == kved %}selected{% endif %}>
+                                {{ kved[:20] if kved else 'Не вказано' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 mb-3">
+                        <label for="size_id" class="form-label">Розмір</label>
+                        <select class="form-select" id="size_id" name="size_id">
+                            <option value="">Всі розміри</option>
+                            {% for size in sizes %}
+                            <option value="{{ size }}" {% if current_filters.size_id == size %}selected{% endif %}>
+                                {{ size }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 mb-3">
+                        <label for="sort_by" class="form-label">Сортування</label>
+                        <div class="input-group">
+                            <select class="form-select" id="sort_by" name="sort_by">
+                                <option value="name" {% if current_filters.sort_by == 'name' %}selected{% endif %}>Назва</option>
+                                <option value="revenue" {% if current_filters.sort_by == 'revenue' %}selected{% endif %}>Дохід</option>
+                                <option value="profit" {% if current_filters.sort_by == 'profit' %}selected{% endif %}>Прибуток</option>
+                                <option value="personnel" {% if current_filters.sort_by == 'personnel' %}selected{% endif %}>Персонал</option>
+                                <option value="ranking" {% if current_filters.sort_by == 'ranking' %}selected{% endif %}>Рейтинг</option>
+                            </select>
+                            <select class="form-select" id="sort_order" name="sort_order" style="max-width: 100px;">
+                                <option value="asc" {% if current_filters.sort_order == 'asc' %}selected{% endif %}>↑</option>
+                                <option value="desc" {% if current_filters.sort_order == 'desc' %}selected{% endif %}>↓</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Застосувати фільтри
+                        </button>
+                        <a href="{{ url_for('main.companies') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Скинути
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0">
+            Результати ({{ companies.total }} компаній)
+        </h6>
+    </div>
+    <div class="card-body">
+        {% if companies.items %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Дії</th>
+                        <th>Місце</th>
+                        <th>ЄДРПОУ</th>
+                        <th>Назва компанії</th>
+                        <th>Регіон</th>
+                        <th>КВЕД</th>
+                        <th>Персонал</th>
+                        <th>Дохід</th>
+                        <th>Прибуток</th>
+                        <th>Контакти</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in companies.items %}
+                    <tr>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="showCompanyDetails('{{ company.id }}')" title="Переглянути повну інформацію">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                        <td>
+                            {% if company.ranking %}
+                                <span class="badge bg-warning text-dark">#{{ company.ranking }}</span>
+                                {% if company.ranking_criteria %}
+                                    <br><small class="text-muted">{{ company.ranking_criteria }}</small>
+                                {% endif %}
+                                <br>
+                                <!-- Експорт останнього рейтингу -->
+                                <a href="javascript:void(0)" onclick="exportLatestRanking()" class="btn btn-sm btn-danger mt-1" title="Експорт в PDF">
+                                    <i class="bi bi-filetype-pdf"></i> PDF
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ company.edrpou }}</code></td>
+                        <td>
+                            <strong>{{ company.name }}</strong>
+                            {% if company.company_size_name %}
+                                <br><small class="text-muted">{{ company.company_size_name }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.region_name %}
+                                <span class="badge bg-secondary">{{ company.region_name }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.kved_code %}
+                                <span class="badge bg-info">{{ company.kved_code }}</span>
+                                {% if company.kved_description %}
+                                    <br><small class="text-muted">{{ company.kved_description[:30] }}...</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.personnel_2019 %}
+                                {{ "{:,}".format(company.personnel_2019) }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.revenue_2019 %}
+                                {{ "{:,.0f}".format(company.revenue_2019) }} ₴
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.profit_2019 %}
+                                <span class="{% if company.profit_2019 > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "{:,.0f}".format(company.profit_2019) }} ₴
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.phone or company.address %}
+                                {% if company.phone %}
+                                    <i class="bi bi-telephone"></i> {{ company.phone }}<br>
+                                {% endif %}
+                                {% if company.address %}
+                                    <i class="bi bi-geo-alt"></i> <small>{{ company.address[:30] }}...</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if companies.pages > 1 %}
+        <nav aria-label="Навігація по сторінках" class="mt-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="mb-0 text-muted">
+                    Показано {{ ((companies.page - 1) * companies.per_page) + 1 }} - {{ companies.page * companies.per_page if companies.page * companies.per_page < companies.total else companies.total }} з {{ companies.total }} компаній
+                </p>
+                <ul class="pagination mb-0">
+                    {% if companies.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.companies', page=companies.prev_num, **current_filters) }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in companies.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != companies.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.companies', page=page_num, **current_filters) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if companies.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.companies', page=companies.next_num, **current_filters) }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+            <h4>Компанії не знайдено</h4>
+            <p class="text-muted">Спробуйте змінити фільтри або завантажити нові дані.</p>
+            {% if current_user.has_permission('upload') %}
+            <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                <i class="bi bi-upload"></i> Завантажити файл
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Company Details Modal -->
+<div class="modal fade" id="companyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Повна інформація про компанію</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="companyModalBody">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Завантаження...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCompanyDetails(companyId) {
+    const modal = new bootstrap.Modal(document.getElementById('companyModal'));
+    const modalBody = document.getElementById('companyModalBody');
+    
+    // Show loading spinner
+    modalBody.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Завантаження...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch company details
+    fetch(`/api/company/${companyId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modalBody.innerHTML = buildCompanyDetailsHTML(data.company);
+            } else {
+                modalBody.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        Помилка завантаження даних: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    Помилка мережі: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function buildCompanyDetailsHTML(company) {
+    return `
+        <div class="row">
+            <div class="col-12 mb-3">
+                <h6 class="text-primary">Основна інформація</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>ЄДРПОУ:</strong> <code>${company.edrpou || '-'}</code><br>
+                                <strong>Назва:</strong> ${company.name || '-'}<br>
+                                <strong>Статус:</strong> ${company.company_status || '-'}<br>
+                                <strong>Розмір:</strong> ${company.company_size_name || '-'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>КВЕД:</strong> ${company.kved_code || '-'}<br>
+                                <strong>Опис КВЕД:</strong> ${company.kved_description || '-'}<br>
+                                <strong>Регіон:</strong> ${company.region_name || '-'}<br>
+                                <strong>Персонал:</strong> ${company.personnel_2019 ? company.personnel_2019.toLocaleString() : '-'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <h6 class="text-success">Фінансові показники</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <strong>Дохід:</strong> ${company.revenue_2019 ? company.revenue_2019.toLocaleString() + ' ₴' : '-'}<br>
+                        <strong>Прибуток:</strong> ${company.profit_2019 ? company.profit_2019.toLocaleString() + ' ₴' : '-'}<br>
+                        <strong>Держзакупівлі:</strong> ${company.government_purchases ? company.government_purchases.toLocaleString() + ' ₴' : '-'}<br>
+                        <strong>Кількість тендерів:</strong> ${company.tender_count || '-'}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <h6 class="text-info">Керівництво</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <strong>Ім'я:</strong> ${company.first_name || '-'}<br>
+                        <strong>По батькові:</strong> ${company.middle_name || '-'}<br>
+                        <strong>Прізвище:</strong> ${company.last_name || '-'}<br>
+                        <strong>Директор:</strong> ${company.director || '-'}<br>
+                        <strong>Ініціали:</strong> ${company.initials || '-'}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12 mb-3">
+                <h6 class="text-warning">Контактна інформація</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Телефон:</strong> ${company.phone || '-'}<br>
+                                <strong>Робочий телефон:</strong> ${company.work_phone || '-'}<br>
+                                <strong>Email:</strong> ${company.work_email || '-'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Сайт:</strong> ${company.corporate_site || '-'}<br>
+                                <strong>Адреса:</strong> ${company.address || '-'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <h6 class="text-secondary">Технічна інформація</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <strong>Источник:</strong> ${company.source || '-'}<br>
+                        <strong>Актуалізовано:</strong> ${['так', 'yes', 'true', '1', 'актуалізовано', 'updated', 'ok'].includes(company.actualized?.toLowerCase()?.trim()) ? '✓ Так' : '✗ Ні'}<br>
+                        <strong>Поточне місце:</strong> ${company.ranking ? '#' + company.ranking : '-'}<br>
+                        <strong>Поточний критерій:</strong> ${company.ranking_criteria || '-'}<br>
+                        <strong>Створено:</strong> ${company.created_at ? new Date(company.created_at).toLocaleDateString('uk-UA') : '-'}<br>
+                        <strong>Оновлено:</strong> ${company.updated_at ? new Date(company.updated_at).toLocaleDateString('uk-UA') : '-'}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <h6 class="text-primary">Історія рейтингів</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${company.ranking_history && company.ranking_history.length > 0 ? 
+                            company.ranking_history.map(rank => `
+                                <div class="border-bottom pb-2 mb-2">
+                                    <strong>${rank.ranking_name}</strong><br>
+                                    <span class="badge bg-primary">#${rank.ranking_position}</span>
+                                    <small class="text-muted">${rank.ranking_criteria}</small><br>
+                                    <small class="text-secondary">Джерело: ${rank.source_name}</small><br>
+                                    <small class="text-muted">${rank.created_at ? new Date(rank.created_at).toLocaleDateString('uk-UA') : '-'}</small>
+                                </div>
+                            `).join('')
+                            : '<span class="text-muted">Рейтингів поки немає</span>'
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Export latest ranking to PDF
+function exportLatestRanking() {
+    fetch('/api/latest-ranking-id')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.ranking_id) {
+                window.location.href = `/ranking/${data.ranking_id}/export-pdf`;
+            } else {
+                alert('Немає доступних рейтингів для експорту. Спочатку створіть рейтинг.');
+            }
+        })
+        .catch(error => {
+            console.error('Error getting latest ranking:', error);
+            alert('Помилка при отриманні рейтингу');
+        });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Завантаження файлів - Система обробки даних компаній{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-upload"></i> Завантаження та злиття даних</h1>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-excel"></i> Поетапне завантаження файлів</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Порядок завантаження:</h6>
+                    <ol>
+                        <li><strong>Спочатку завантажте основний файл</strong> - створює базу компаній з 11 колонками</li>
+                        <li><strong>Потім актуалізуйте додатковим файлом</strong> - додає 17 колонок за ЄДРПОУ</li>
+                        <li>Фінальний результат: <strong>33 колонки</strong> (11 + 17 + 5 технічних)</li>
+                        <li>Готові дані для створення відбору та рейтингу</li>
+                    </ol>
+                </div>
+                
+                <!-- Основний файл -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="bi bi-file-earmark-excel"></i> Крок 1: Основний файл</h6>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" enctype="multipart/form-data" id="mainFileForm" onsubmit="showMainProgress()">
+                                    <input type="hidden" name="action" value="upload">
+                                    <label for="main_file" class="form-label">Основний файл (11 колонок)</label>
+                                    <input type="file" class="form-control mb-3" id="main_file" name="file" accept=".xlsx,.xls,.csv" required>
+                                    <div class="form-text mb-3">Базова таблиця з компаніями (ЄДРПОУ, назва, регіон, доходи тощо)</div>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary" id="mainUploadBtn">
+                                            <i class="bi bi-upload"></i> Завантажити
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="bi bi-file-earmark-plus"></i> Крок 2: Актуалізація</h6>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" enctype="multipart/form-data" id="additionalFileForm" onsubmit="showAdditionalProgress()">
+                                    <input type="hidden" name="action" value="actualize">
+                                    <label for="additional_file" class="form-label">Додатковий файл (17 колонок)</label>
+                                    <input type="file" class="form-control mb-3" id="additional_file" name="file" accept=".xlsx,.xls,.csv" required>
+                                    <div class="form-text mb-3">Розширена інформація (керівники, контакти, держзакупівлі тощо)</div>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-success" id="additionalUploadBtn">
+                                            <i class="bi bi-arrow-clockwise"></i> Актуалізувати
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Section for Main File -->
+                <div id="mainProgressSection" class="mt-4" style="display: none;">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-gear-fill"></i> Обробка основного файлу</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress mb-3" style="height: 20px;">
+                                <div id="mainProgressBar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                <div id="mainStep1" class="list-group-item">
+                                    <i class="bi bi-hourglass-split text-muted"></i> Читання файлу
+                                </div>
+                                <div id="mainStep2" class="list-group-item">
+                                    <i class="bi bi-hourglass-split text-muted"></i> Створення бази компаній
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Section for Additional File -->
+                <div id="additionalProgressSection" class="mt-4" style="display: none;">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-gear-fill"></i> Актуалізація додатковим файлом</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress mb-3" style="height: 20px;">
+                                <div id="additionalProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                <div id="additionalStep1" class="list-group-item">
+                                    <i class="bi bi-hourglass-split text-muted"></i> Читання додаткового файлу
+                                </div>
+                                <div id="additionalStep2" class="list-group-item">
+                                    <i class="bi bi-hourglass-split text-muted"></i> Актуалізація компаній
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                                    <span class="badge bg-secondary">Очікування</span>
+                                </div>
+                                <div id="step2" class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-hourglass-split text-muted"></i> Нормалізація даних</span>
+                                    <span class="badge bg-secondary">Очікування</span>
+                                </div>
+                                <div id="step3" class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-hourglass-split text-muted"></i> Створення записів компаній</span>
+                                    <span class="badge bg-secondary">Очікування</span>
+                                </div>
+                                <div id="step4" class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-hourglass-split text-muted"></i> Обробка фінансових даних</span>
+                                    <span class="badge bg-secondary">Очікування</span>
+                                </div>
+                                <div id="step5" class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-hourglass-split text-muted"></i> Збереження до бази даних</span>
+                                    <span class="badge bg-secondary">Очікування</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Вимоги до файлу</h6>
+            </div>
+            <div class="card-body">
+                <h6>Обов'язкові колонки:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-check-circle text-success"></i> Код ЄДРПОУ</li>
+                    <li><i class="bi bi-check-circle text-success"></i> Назва компанії</li>
+                </ul>
+                
+                <h6 class="mt-3">Додаткові колонки:</h6>
+                <ul class="list-unstyled small">
+                    <li><i class="bi bi-circle"></i> КВЕД</li>
+                    <li><i class="bi bi-circle"></i> Основний вид діяльності</li>
+                    <li><i class="bi bi-circle"></i> Персонал (2019 р.)</li>
+                    <li><i class="bi bi-circle"></i> Область</li>
+                    <li><i class="bi bi-circle"></i> Телефон</li>
+                    <li><i class="bi bi-circle"></i> Адреса реєстрації</li>
+                    <li><i class="bi bi-circle"></i> Чистий дохід від реалізації продукції</li>
+                    <li><i class="bi bi-circle"></i> Чистий фінансовий результат: прибуток</li>
+                    <li><i class="bi bi-circle"></i> Розмір</li>
+                </ul>
+                
+                <div class="alert alert-info mt-3">
+                    <small>
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>Підказка:</strong> Система автоматично розпізнає колонки навіть якщо їх назви трохи відрізняються.
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-arrow-repeat"></i> Процес обробки</h6>
+            </div>
+            <div class="card-body">
+                <ol class="small">
+                    <li>Завантаження та перевірка файлу</li>
+                    <li>Нормалізація назв колонок</li>
+                    <li>Створення/оновлення довідників (регіони, КВЕД, розміри)</li>
+                    <li>Імпорт або оновлення даних компаній</li>
+                    <li>Обробка фінансових показників</li>
+                    <li>Злиття з додатковим файлом (якщо є)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showMainProgress() {
+    document.getElementById('mainProgressSection').style.display = 'block';
+    document.getElementById('mainUploadBtn').disabled = true;
+    
+    var progressBar = document.getElementById('mainProgressBar');
+    var step1 = document.getElementById('mainStep1');
+    var step2 = document.getElementById('mainStep2');
+    
+    // Animate progress
+    setTimeout(() => {
+        progressBar.style.width = '50%';
+        progressBar.textContent = '50%';
+        step1.innerHTML = '<i class="bi bi-check-circle text-success"></i> Читання файлу';
+    }, 500);
+    
+    setTimeout(() => {
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        step2.innerHTML = '<i class="bi bi-check-circle text-success"></i> Створення бази компаній';
+    }, 1500);
+}
+
+function showAdditionalProgress() {
+    document.getElementById('additionalProgressSection').style.display = 'block';
+    document.getElementById('additionalUploadBtn').disabled = true;
+    
+    var progressBar = document.getElementById('additionalProgressBar');
+    var step1 = document.getElementById('additionalStep1');
+    var step2 = document.getElementById('additionalStep2');
+    
+    // Animate progress
+    setTimeout(() => {
+        progressBar.style.width = '50%';
+        progressBar.textContent = '50%';
+        step1.innerHTML = '<i class="bi bi-check-circle text-success"></i> Читання додаткового файлу';
+    }, 500);
+    
+    setTimeout(() => {
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        step2.innerHTML = '<i class="bi bi-check-circle text-success"></i> Актуалізація компаній';
+    }, 1500);
+}
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file');
+    const mergeFileInput = document.getElementById('merge_file');
+    const form = document.querySelector('form');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressSection = document.getElementById('progressSection');
+    
+    // File size validation
+    [fileInput, mergeFileInput].forEach(input => {
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file && file.size > 16 * 1024 * 1024) {
+                alert('Файл занадто великий. Максимальний розмір: 16 МБ');
+                this.value = '';
+            }
+        });
+    });
+    
+    // Progress tracking on form submit
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Show progress section
+        progressSection.style.display = 'block';
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Обробка...';
+        
+        // Simulate progress steps
+        let currentStep = 0;
+        const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
+        const stepNames = [
+            'Читання файлу', 
+            'Нормалізація даних', 
+            'Створення записів компаній', 
+            'Обробка фінансових даних', 
+            'Збереження до бази даних'
+        ];
+        
+        function updateStep(stepIndex, status) {
+            const step = document.getElementById(steps[stepIndex]);
+            const icon = step.querySelector('i');
+            const badge = step.querySelector('.badge');
+            
+            if (status === 'processing') {
+                icon.className = 'bi bi-gear-fill text-primary';
+                badge.className = 'badge bg-primary';
+                badge.textContent = 'Обробка...';
+            } else if (status === 'completed') {
+                icon.className = 'bi bi-check-circle-fill text-success';
+                badge.className = 'badge bg-success';
+                badge.textContent = 'Виконано';
+            }
+        }
+        
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.setAttribute('aria-valuenow', percentage);
+            progressBar.textContent = percentage + '%';
+        }
+        
+        // Start processing simulation
+        const interval = setInterval(function() {
+            if (currentStep < steps.length) {
+                updateStep(currentStep, 'processing');
+                updateProgress((currentStep + 1) * 20);
+                
+                setTimeout(() => {
+                    updateStep(currentStep, 'completed');
+                    currentStep++;
+                    
+                    if (currentStep >= steps.length) {
+                        clearInterval(interval);
+                        // Submit the actual form
+                        setTimeout(() => {
+                            form.removeEventListener('submit', arguments.callee);
+                            const formData = new FormData(form);
+                            form.submit();
+                        }, 500);
+                    }
+                }, 800);
+            }
+        }, 1000);
+    });
+});
+</script>
+{% endblock %}

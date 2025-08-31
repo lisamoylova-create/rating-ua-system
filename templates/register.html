@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Реєстрація - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4><i class="bi bi-person-plus"></i> Реєстрація нового користувача</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Ім'я користувача</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               required minlength="3" maxlength="64"
+                               value="{{ request.form.get('username', '') }}">
+                        <div class="form-text">Мінімум 3 символи, тільки латинські літери, цифри та підкреслення</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               required maxlength="120"
+                               value="{{ request.form.get('email', '') }}">
+                        <div class="form-text">Введіть коректну email адресу</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               required minlength="6">
+                        <div class="form-text">Мінімум 6 символів</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password_confirm" class="form-label">Підтвердження пароля</label>
+                        <input type="password" class="form-control" id="password_confirm" name="password_confirm" 
+                               required minlength="6">
+                        <div class="form-text">Повторіть пароль для підтвердження</div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle"></i> 
+                            Нові користувачі отримують роль "Глядач" з правами лише на перегляд даних. 
+                            Зверніться до адміністратора для отримання розширених прав.
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-person-plus"></i> Зареєструватися
+                    </button>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <small class="text-muted">
+                    Вже маєте акаунт? 
+                    <a href="{{ url_for('auth.login') }}" class="text-decoration-none">Увійти</a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.addEventListener('DOMContentLoaded', function() {
+    const password = document.getElementById('password');
+    const passwordConfirm = document.getElementById('password_confirm');
+    
+    function checkPasswordMatch() {
+        if (password.value !== passwordConfirm.value) {
+            passwordConfirm.setCustomValidity('Паролі не співпадають');
+        } else {
+            passwordConfirm.setCustomValidity('');
+        }
+    }
+    
+    password.addEventListener('change', checkPasswordMatch);
+    passwordConfirm.addEventListener('keyup', checkPasswordMatch);
+});
+</script>
+{% endblock %}

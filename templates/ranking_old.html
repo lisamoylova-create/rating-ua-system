@@ -1,0 +1,873 @@
+{% extends "base.html" %}
+
+{% block title %}Рейтинг - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-trophy"></i> Рейтинг компаній</h1>
+            <div>
+                <button class="btn btn-success me-2" onclick="exportToCSV()">
+                    <i class="bi bi-download"></i> Експорт CSV
+                </button>
+                <button class="btn btn-primary" onclick="exportToPDF()">
+                    <i class="bi bi-file-earmark-pdf"></i> Експорт PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3>{{ total_companies }}</h3>
+                <p class="mb-0">Всього в базі</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3>{{ selection_count or 0 }}</h3>
+                <p class="mb-0">База відбору</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3>{{ ranked_companies }}</h3>
+                <p class="mb-0">У рейтингу</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <h3>{{ (ranked_companies / (selection_count or 1) * 100)|round|int if selection_count > 0 else 0 }}%</h3>
+                <p class="mb-0">Покриття відбору</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selection Base Info -->
+{% if selection_criteria %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>База відбору:</strong> {{ selection_criteria }}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-funnel"></i> Фільтри та сортування</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="ranking-form">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label for="kved_filter" class="form-label">КВЕД (пріоритет 1)</label>
+                            <select class="form-select" id="kved_filter" name="kved_filter" multiple size="4">
+                                <!-- Options will be loaded via JavaScript -->
+                            </select>
+                            <div class="form-text">Фільтр за кодами видів економічної діяльності</div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="region_filter" class="form-label">Регіон (пріоритет 2)</label>
+                            <select class="form-select" id="region_filter" name="region_filter" multiple size="4">
+                                <!-- Options will be loaded via JavaScript -->
+                            </select>
+                            <div class="form-text">Фільтр за регіонами</div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="size_filter" class="form-label">Розмір (пріоритет 3)</label>
+                            <select class="form-select" id="size_filter" name="size_filter" multiple size="4">
+                                <!-- Options will be loaded via JavaScript -->
+                            </select>
+                            <div class="form-text">Фільтр за розмірами компаній</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="sort_criteria" class="form-label">Параметр для сортування</label>
+                            <select class="form-select" id="sort_criteria" name="sort_criteria">
+                                <option value="revenue">Чистий дохід від реалізації продукції</option>
+                                <option value="profit">Чистий фінансовий результат: прибуток</option>
+                                <option value="personnel">Персонал (кількість працівників)</option>
+                            </select>
+                            <div class="form-text">Критерій для визначення місця в рейтингу</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="year_source" class="form-label">Рік джерела даних</label>
+                            <select class="form-select" id="year_source" name="year_source">
+                                <option value="2025" selected>2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                                <option value="2022">2022</option>
+                                <option value="2021">2021</option>
+                            </select>
+                            <div class="form-text">Рік для технічної колонки "Источник: Україна [рік]"</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <label for="ranking_name" class="form-label">Назва рейтингу</label>
+                            <input type="text" class="form-control" id="ranking_name" name="ranking_name" 
+                                   placeholder="Наприклад: Топ-100 за доходом у Київській області">
+                            <div class="form-text">Назва для збереження та експорту цього рейтингу</div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Увага:</strong> Спочатку створіть базу для ранжування в розділі 
+                        <a href="{{ url_for('main.filter_companies_route') }}" class="alert-link">"База для ранжування"</a>.
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-trophy"></i> Створити рейтинг
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Інформація про базу</h6>
+            </div>
+            <div class="card-body">
+                <div id="base-info-loading" class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Завантаження...</span>
+                    </div>
+                    Завантаження інформації...
+                </div>
+                <div id="base-info-content" style="display: none;">
+                    <!-- Base info will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-bookmark-star"></i> Збережені рейтинги</h6>
+            </div>
+            <div class="card-body">
+                <div id="saved-rankings-loading" class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Завантаження...</span>
+                    </div>
+                    Завантаження рейтингів...
+                </div>
+                <div id="saved-rankings-content" style="display: none;">
+                    <!-- Saved rankings will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ranking results table -->
+<div class="row mt-4" id="ranking-results" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-award"></i> Результат рейтингу</h5>
+            </div>
+            <div class="card-body">
+                <div id="ranking-table-container">
+                    <!-- Ranking table will be loaded here -->
+                </div>
+            </div>
+        </div>
+<!-- Main Ranking Table -->
+{% if (companies_with_rankings and companies_with_rankings|length > 0) or show_table %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-award"></i> Рейтинг компаній (Топ-{{ companies_with_rankings|length }})</h5>
+                <div>
+                    <button class="btn btn-success btn-sm me-2" onclick="exportToCSV()">
+                        <i class="bi bi-download"></i> Експорт CSV
+                    </button>
+                    {% if ranking_name %}
+                        <span class="badge bg-primary">{{ ranking_name }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="ranking-table">
+                        <thead>
+                            <tr>
+                                <th>Рейтинг</th>
+                                <th>ЄДРПОУ</th>
+                                <th>Назва компанії</th>
+                                <th>Регіон</th>
+                                <th>КВЕД</th>
+                                <th>Дохід</th>
+                                <th>Прибуток</th>
+                                <th>Персонал</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-table-body">
+                            {% if companies_with_rankings %}
+                                {% for company in companies_with_rankings %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-warning text-dark fs-6"># {{ company.ranking }}</span>
+                                    </td>
+                                    <td><code>{{ company.edrpou }}</code></td>
+                                    <td>
+                                        <strong>{{ company.name }}</strong>
+                                        {% if company.company_size_name %}
+                                            <br><small class="text-muted">{{ company.company_size_name }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.region_name %}
+                                            <span class="badge bg-secondary">{{ company.region_name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.kved_code %}
+                                            <span class="badge bg-info">{{ company.kved_code }}</span>
+                                            {% if company.kved_description %}
+                                                <br><small class="text-muted">{{ company.kved_description[:40] }}...</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.revenue_2019 %}
+                                            <strong class="text-success">{{ "{:,.0f}".format(company.revenue_2019) }} тис. ₴</strong>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.profit_2019 %}
+                                            <span class="{% if company.profit_2019 > 0 %}text-success{% else %}text-danger{% endif %}">
+                                                {{ "{:,.0f}".format(company.profit_2019) }} тис. ₴
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.personnel_2019 %}
+                                            {{ "{:,}".format(company.personnel_2019) }} осіб
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if company.actualized and company.actualized.lower().strip() in ['так', 'yes', 'true', '1', 'актуалізовано', 'updated', 'ok'] %}
+                                            <span class="badge bg-success">Актуалізовано</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Базові дані</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-info-circle"></i> Створіть рейтинг для відображення результатів
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-trophy fs-1 text-muted mb-3"></i>
+                <h4>Рейтинг ще не створено</h4>
+                <p class="text-muted">Спочатку створіть базу відбору у відповідному розділі, а потім сформуйте рейтинг.</p>
+                <a href="{{ url_for('main.filter_companies_route') }}" class="btn btn-primary">
+                    <i class="bi bi-filter-circle"></i> Створити базу відбору
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Top Companies by Criteria -->
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-cash-stack"></i> Топ-5 за доходом</h6>
+            </div>
+            <div class="card-body">
+                {% for company in top_by_revenue[:5] %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <strong>{{ company.name[:25] }}...</strong>
+                        <br><small class="text-muted">{{ company.edrpou }}</small>
+                    </div>
+                    <div class="text-end">
+                        <strong class="text-success">{{ "{:,.0f}".format(company.revenue_2019) if company.revenue_2019 else 0 }} ₴</strong>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Топ-5 за прибутком</h6>
+            </div>
+            <div class="card-body">
+                {% for company in top_by_profit[:5] %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <strong>{{ company.name[:25] }}...</strong>
+                        <br><small class="text-muted">{{ company.edrpou }}</small>
+                    </div>
+                    <div class="text-end">
+                        <strong class="{% if company.profit_2019 > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "{:,.0f}".format(company.profit_2019) if company.profit_2019 else 0 }} ₴
+                        </strong>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-people"></i> Топ-5 за персоналом</h6>
+            </div>
+            <div class="card-body">
+                {% for company in top_by_personnel[:5] %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <strong>{{ company.name[:25] }}...</strong>
+                        <br><small class="text-muted">{{ company.edrpou }}</small>
+                    </div>
+                    <div class="text-end">
+                        <strong class="text-primary">{{ "{:,}".format(company.personnel_2019) if company.personnel_2019 else 0 }}</strong>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function exportToCSV() {
+    const table = document.getElementById('ranking-table');
+    if (!table) {
+        alert('Спочатку створіть рейтинг для експорту');
+        return;
+    }
+    
+    // Create CSV with all 33 fields via API call
+    fetch('/api/export_ranking', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            format: 'csv',
+            include_all_fields: true
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Помилка експорту');
+    })
+    .then(blob => {
+        const downloadLink = document.createElement('a');
+        downloadLink.download = 'rating_ukraine_' + new Date().toISOString().split('T')[0] + '.csv';
+        downloadLink.href = window.URL.createObjectURL(blob);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        // Fallback to table export
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll('td, th');
+            
+            for (let j = 0; j < cols.length; j++) {
+                let cellText = cols[j].innerText.replace(/"/g, '""');
+                row.push('"' + cellText + '"');
+            }
+            
+            csv.push(row.join(','));
+        }
+        
+        const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+        const downloadLink = document.createElement('a');
+        downloadLink.download = 'rating_ukraine_' + new Date().toISOString().split('T')[0] + '.csv';
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    });
+}
+
+function loadRanking(rankingName) {
+    // Reload current ranking
+    window.location.reload();
+}
+
+function exportToPDF() {
+    alert('Експорт у PDF буде доступний у наступній версії.');
+}
+
+// Load base information
+function loadBaseInfo() {
+    fetch('/api/selection_base_info')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('base-info-loading').style.display = 'none';
+            document.getElementById('base-info-content').style.display = 'block';
+            document.getElementById('base-info-content').innerHTML = 
+                '<div class="text-center mb-3">' +
+                    '<h4 class="text-success">' + data.selection_count + '</h4>' +
+                    '<small class="text-muted">Компаній у базі для ранжування</small>' +
+                '</div>' +
+                '<hr>' +
+                '<div class="mb-2">' +
+                    '<small class="text-muted">Критерії відбору:</small><br>' +
+                    '<strong class="small">' + data.selection_criteria + '</strong>' +
+                '</div>' +
+                '<div class="row text-center mt-3">' +
+                    '<div class="col-6">' +
+                        '<small class="text-muted">Всього в базі:</small><br>' +
+                        '<strong>' + data.total_companies + '</strong>' +
+                    '</div>' +
+                    '<div class="col-6">' +
+                        '<small class="text-muted">В рейтингу:</small><br>' +
+                        '<strong class="text-primary">' + data.ranked_count + '</strong>' +
+                    '</div>' +
+                '</div>';
+        })
+        .catch(error => {
+            document.getElementById('base-info-loading').innerHTML = 
+                '<div class="text-danger">Помилка завантаження</div>';
+        });
+}
+
+// Load saved rankings  
+function loadSavedRankings() {
+    fetch('/api/saved_rankings')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('saved-rankings-loading').style.display = 'none';
+            document.getElementById('saved-rankings-content').style.display = 'block';
+            
+            if (data.rankings && data.rankings.length > 0) {
+                var html = '';
+                data.rankings.forEach(function(ranking) {
+                    html += '<div class="mb-3 p-3 bg-light rounded border">' +
+                                '<div class="d-flex justify-content-between align-items-start">' +
+                                    '<div>' +
+                                        '<h6 class="mb-1">' + ranking.name + '</h6>' +
+                                        '<div class="small text-muted">' +
+                                            '<i class="bi bi-people-fill"></i> ' + ranking.company_count + ' компаній<br>' +
+                                            '<i class="bi bi-calendar3"></i> ' + ranking.created_date + '<br>' +
+                                            '<i class="bi bi-sort-down"></i> ' + ranking.criteria +
+                                        '</div>' +
+                                    '</div>' +
+                                    '<button class="btn btn-sm btn-outline-primary" onclick="loadRanking(\'' + ranking.name + '\')">' +
+                                        '<i class="bi bi-arrow-clockwise"></i> Завантажити' +
+                                    '</button>' +
+                                '</div>' +
+                            '</div>';
+                });
+                document.getElementById('saved-rankings-content').innerHTML = html;
+            } else {
+                document.getElementById('saved-rankings-content').innerHTML = 
+                    '<div class="text-muted text-center">Немає збережених рейтингів<br><small>Створіть рейтинг, щоб він з\'явився тут</small></div>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('saved-rankings-loading').innerHTML = 
+                '<div class="text-danger">Помилка завантаження</div>';
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - starting initialization');
+    
+    // Check if elements exist
+    var regionSelect = document.getElementById('region_filter');
+    var kvedSelect = document.getElementById('kved_filter');
+    var sizeSelect = document.getElementById('size_filter');
+    
+    console.log('Elements found:', {
+        region: !!regionSelect,
+        kved: !!kvedSelect,
+        size: !!sizeSelect
+    });
+    
+    // Load filter options immediately
+    loadFilterOptions();
+    
+    // Load base information
+    loadBaseInfo();
+    
+    // Load saved rankings
+    loadSavedRankings();
+    
+    console.log('All initialization functions called');
+});
+
+function loadFilterOptions() {
+    console.log('Starting to load filter options...');
+    
+    // Load regions first
+    fetch('/api/regions')
+        .then(function(response) {
+            console.log('Regions response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Regions data received:', data);
+            var regionSelect = document.getElementById('region_filter');
+            if (regionSelect) {
+                regionSelect.innerHTML = '<option value="">Всі регіони</option>';
+                if (data.regions && data.regions.length > 0) {
+                    for (var i = 0; i < data.regions.length; i++) {
+                        var region = data.regions[i];
+                        var option = document.createElement('option');
+                        option.value = region.id;
+                        option.textContent = region.name;
+                        regionSelect.appendChild(option);
+                    }
+                    console.log('Successfully loaded', data.regions.length, 'regions');
+                } else {
+                    console.warn('No regions found in response');
+                }
+            } else {
+                console.error('Region select element not found!');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading regions:', error);
+        });
+
+    // Load KVED codes  
+    fetch('/api/kved')
+        .then(function(response) {
+            console.log('KVED response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('KVED data received:', data);
+            var kvedSelect = document.getElementById('kved_filter');
+            if (kvedSelect) {
+                kvedSelect.innerHTML = '<option value="">Всі КВЕД</option>';
+                if (data.kved && data.kved.length > 0) {
+                    for (var i = 0; i < data.kved.length; i++) {
+                        var kved = data.kved[i];
+                        var option = document.createElement('option');
+                        option.value = kved.id;
+                        option.textContent = kved.code + ' - ' + kved.description.substring(0, 30) + '...';
+                        kvedSelect.appendChild(option);
+                    }
+                    console.log('Successfully loaded', data.kved.length, 'KVED codes');
+                } else {
+                    console.warn('No KVED codes found in response');
+                }
+            } else {
+                console.error('KVED select element not found!');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading KVED:', error);
+        });
+
+    // Load company sizes
+    fetch('/api/company_sizes')
+        .then(function(response) {
+            console.log('Company sizes response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Company sizes data received:', data);
+            var sizeSelect = document.getElementById('size_filter');
+            if (sizeSelect) {
+                sizeSelect.innerHTML = '<option value="">Всі розміри</option>';
+                if (data.company_sizes && data.company_sizes.length > 0) {
+                    for (var i = 0; i < data.company_sizes.length; i++) {
+                        var size = data.company_sizes[i];
+                        var option = document.createElement('option');
+                        option.value = size.id;
+                        option.textContent = size.size_name;
+                        sizeSelect.appendChild(option);
+                    }
+                    console.log('Successfully loaded', data.company_sizes.length, 'company sizes');
+                } else {
+                    console.warn('No company sizes found in response');
+                }
+            } else {
+                console.error('Size select element not found!');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading company sizes:', error);
+        });
+}
+
+
+
+function loadSavedRankings() {
+    console.log('Loading saved rankings from /api/saved_rankings');
+    
+    fetch('/api/saved_rankings')
+        .then(response => {
+            console.log('Saved rankings response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Saved rankings data:', data);
+            document.getElementById('saved-rankings-loading').style.display = 'none';
+            document.getElementById('saved-rankings-content').style.display = 'block';
+            
+            if (data.rankings && data.rankings.length > 0) {
+                let html = '';
+                data.rankings.forEach(ranking => {
+                    html += `
+                        <div class="mb-3 p-3 bg-light rounded border">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">${ranking.name}</h6>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-people-fill"></i> ${ranking.company_count} компаній<br>
+                                        <i class="bi bi-calendar3"></i> ${ranking.created_date}<br>
+                                        <i class="bi bi-sort-down"></i> ${ranking.criteria}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadRanking('${ranking.name}')">
+                                    <i class="bi bi-arrow-clockwise"></i> Завантажити
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('saved-rankings-content').innerHTML = html;
+            } else {
+                document.getElementById('saved-rankings-content').innerHTML = 
+                    '<div class="text-muted text-center">Немає збережених рейтингів<br><small>Створіть рейтинг, щоб він з\'явився тут</small></div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading saved rankings:', error);
+            document.getElementById('saved-rankings-loading').style.display = 'none';
+            document.getElementById('saved-rankings-content').innerHTML = 
+                '<div class="text-danger text-center">Помилка завантаження рейтингів</div>';
+            document.getElementById('saved-rankings-content').style.display = 'block';
+                                <small>${ranking.companies_count} компаній</small>
+                            </div>
+                            <p class="mb-1">${ranking.criteria}</p>
+                            <small>Створено: ${new Date(ranking.created_at).toLocaleDateString('uk-UA')}</small>
+                        </div>
+                    `;
+                });
+                rankingsHTML += '</div>';
+                savedRankingsContent.innerHTML = rankingsHTML;
+            } else {
+                savedRankingsContent.innerHTML = `
+                    <p class="text-muted text-center">
+                        <i class="bi bi-inbox"></i><br>
+                        Збережених рейтингів поки немає
+                    </p>
+                `;
+            }
+            
+            document.getElementById('saved-rankings-loading').style.display = 'none';
+            savedRankingsContent.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading saved rankings:', error);
+            document.getElementById('saved-rankings-loading').innerHTML = 
+                '<small class="text-muted">Помилка завантаження</small>';
+        });
+}
+
+function loadRanking(rankingId) {
+    fetch(`/api/ranking/${rankingId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.ranking && data.companies) {
+                displayRankingResults(data.ranking, data.companies);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading ranking:', error);
+        });
+}
+
+function displayRankingResults(ranking, companies) {
+    const resultsDiv = document.getElementById('ranking-results');
+    const tableContainer = document.getElementById('ranking-table-container');
+    
+    // Determine column names based on sort criteria
+    const sortCriteriaNames = {
+        'revenue': 'Дохід',
+        'profit': 'Прибуток',
+        'personnel': 'Персонал'
+    };
+    
+    // Create dynamic headers - sort column comes first after КВЕД
+    let sortColumns = [];
+    const currentSort = ranking.sort_criteria;
+    
+    if (currentSort === 'revenue') {
+        sortColumns = ['Дохід', 'Прибуток', 'Персонал'];
+    } else if (currentSort === 'profit') {
+        sortColumns = ['Прибуток', 'Дохід', 'Персонал'];
+    } else { // personnel
+        sortColumns = ['Персонал', 'Дохід', 'Прибуток'];
+    }
+    
+    let tableHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5>${ranking.name}</h5>
+                <small class="text-muted">Компаній у рейтингу: ${companies.length} | Сортування: ${sortCriteriaNames[currentSort]}</small>
+            </div>
+            <div>
+                <a href="/export_csv" class="btn btn-success me-2">
+                    <i class="bi bi-download"></i> CSV
+                </a>
+                <a href="/export_pdf" class="btn btn-primary">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Місце</th>
+                        <th>ЄДРПОУ</th>
+                        <th>Назва компанії</th>
+                        <th>Регіон</th>
+                        <th>КВЕД</th>
+                        <th>${sortColumns[0]}</th>
+                        <th>${sortColumns[1]}</th>
+                        <th>${sortColumns[2]}</th>
+                        <th>Телефон</th>
+                        <th>Адреса</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    companies.forEach((item, index) => {
+        const company = item.company;
+        const financial = company.financial;
+        
+        // Format values for display
+        const revenueFormatted = financial && financial.revenue ? 
+            financial.revenue.toLocaleString() + ' ₴' : '-';
+        const profitFormatted = financial && financial.profit ? 
+            financial.profit.toLocaleString() + ' ₴' : '-';
+        const personnelFormatted = company.personnel_2019 ? 
+            company.personnel_2019.toLocaleString() : '-';
+        
+        // Create values array in correct order
+        let values = [];
+        if (currentSort === 'revenue') {
+            values = [revenueFormatted, profitFormatted, personnelFormatted];
+        } else if (currentSort === 'profit') {
+            values = [profitFormatted, revenueFormatted, personnelFormatted];
+        } else { // personnel
+            values = [personnelFormatted, revenueFormatted, profitFormatted];
+        }
+        
+        tableHTML += `
+            <tr>
+                <td><span class="badge bg-primary fs-6">${item.rank_position}</span></td>
+                <td><code>${company.edrpou}</code></td>
+                <td>${company.name}</td>
+                <td>${company.region ? company.region.name : '-'}</td>
+                <td>${company.kved ? company.kved.code : '-'}</td>
+                <td><strong>${values[0]}</strong></td>
+                <td>${values[1]}</td>
+                <td>${values[2]}</td>
+                <td>${company.phone || '-'}</td>
+                <td>${company.address || '-'}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    tableContainer.innerHTML = tableHTML;
+    resultsDiv.style.display = 'block';
+    
+    // Scroll to results
+    resultsDiv.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}База відбору - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-filter-circle"></i> Відбір компаній для рейтингу</h1>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders"></i> Параметри відбору</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-filter-circle"></i> Основні критерії відбору</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="min_employees" class="form-label">Мінімальна кількість працівників</label>
+                                    <input type="number" class="form-control" id="min_employees" name="min_employees" 
+                                           value="0" min="0" step="1">
+                                    <div class="form-text">Залишати лише компанії з кількістю працівників ≥ зазначеного значення</div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label for="min_revenue" class="form-label">Мінімальний дохід (грн)</label>
+                                    <input type="number" class="form-control" id="min_revenue" name="min_revenue" 
+                                           value="0" min="0" step="0.01">
+                                    <div class="form-text">Залишати лише компанії з доходом ≥ зазначеного значення</div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label for="min_profit" class="form-label">Мінімальний прибуток (грн)</label>
+                                    <input type="number" class="form-control" id="min_profit" name="min_profit" 
+                                           value="" step="0.01">
+                                    <div class="form-text">Залишати лише компанії з прибутком ≥ зазначеного значення (необов'язково)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Увага:</strong> Після застосування відбору створюється база для ранжування. 
+                        Ця база зберігається окремо і буде доступна в розділі "Рейтинг".
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-play-circle"></i> Створити базу для ранжування
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Процес відбору</h6>
+            </div>
+            <div class="card-body">
+                <ol class="small">
+                    <li><strong>Відбір за основними критеріями:</strong>
+                        <ul>
+                            <li>Мінімальна кількість працівників</li>
+                            <li>Мінімальний дохід</li>
+                            <li>Мінімальний прибуток (опціонально)</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Створення бази для ранжування:</strong>
+                        <ul>
+                            <li>Відібрані компанії зберігаються в окремій таблиці</li>
+                            <li>Ця база буде використовуватися для створення рейтингів</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Подальша робота:</strong>
+                        <ul>
+                            <li>Перейдіть до розділу "Рейтинг"</li>
+                            <li>Застосуйте додаткові фільтри</li>
+                            <li>Створіть рейтинг за обраним критерієм</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <div class="alert alert-success mt-3">
+                    <small>
+                        <i class="bi bi-database"></i>
+                        <strong>База:</strong> Відібрані компанії зберігаються як окрема база даних для подальшого ранжування.
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Статистика</h6>
+            </div>
+            <div class="card-body">
+                <div id="stats-loading" class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Завантаження...</span>
+                    </div>
+                    Завантаження статистики...
+                </div>
+                <div id="stats-content" style="display: none;">
+                    <!-- Statistics will be loaded here via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selection results table -->
+<div class="row mt-4" id="selection-results" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table"></i> База для ранжування</h5>
+            </div>
+            <div class="card-body">
+                <div id="selection-table-container">
+                    <!-- Table will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load statistics
+    loadStatistics();
+    
+    // Add input validation
+    const minEmployeesInput = document.getElementById('min_employees');
+    const minRevenueInput = document.getElementById('min_revenue');
+    const minProfitInput = document.getElementById('min_profit');
+    
+    [minEmployeesInput, minRevenueInput, minProfitInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', function() {
+                if (this.value < 0) {
+                    this.value = 0;
+                }
+            });
+        }
+    });
+    
+    // Load existing selection if available
+    loadSelectionResults();
+});
+
+function loadStatistics() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.stats) {
+                const statsContent = document.getElementById('stats-content');
+                statsContent.innerHTML = `
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary">${data.stats.total_companies}</h4>
+                                <small class="text-muted">Всього компаній</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success">${data.stats.companies_with_financials}</h4>
+                            <small class="text-muted">З фінансами</small>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('stats-loading').style.display = 'none';
+                statsContent.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading statistics:', error);
+            document.getElementById('stats-loading').innerHTML = 
+                '<small class="text-muted">Помилка завантаження статистики</small>';
+        });
+}
+
+function loadSelectionResults() {
+    // Check if there's an existing selection base
+    fetch('/api/selection_base')
+        .then(response => response.json())
+        .then(data => {
+            if (data.companies && data.companies.length > 0) {
+                displaySelectionResults(data.companies);
+            }
+        })
+        .catch(error => {
+            console.log('No existing selection base found');
+        });
+}
+
+function displaySelectionResults(companies) {
+    const resultsDiv = document.getElementById('selection-results');
+    const tableContainer = document.getElementById('selection-table-container');
+    
+    let tableHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6>Компанії в базі для ранжування: ${companies.length}</h6>
+            <div>
+                <a href="/ranking" class="btn btn-success">
+                    <i class="bi bi-trophy"></i> Перейти до рейтингу
+                </a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>ЄДРПОУ</th>
+                        <th>Назва компанії</th>
+                        <th>Регіон</th>
+                        <th>КВЕД</th>
+                        <th>Персонал</th>
+                        <th>Дохід</th>
+                        <th>Прибуток</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    companies.slice(0, 20).forEach(company => {
+        tableHTML += `
+            <tr>
+                <td><code>${company.edrpou}</code></td>
+                <td>${company.name}</td>
+                <td>${company.region ? company.region.name : '-'}</td>
+                <td>${company.kved ? company.kved.code : '-'}</td>
+                <td>${company.personnel_2019 ? company.personnel_2019.toLocaleString() : '-'}</td>
+                <td>${company.financial && company.financial.revenue ? 
+                    company.financial.revenue.toLocaleString() + ' ₴' : '-'}</td>
+                <td>${company.financial && company.financial.profit ? 
+                    company.financial.profit.toLocaleString() + ' ₴' : '-'}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    if (companies.length > 20) {
+        tableHTML += `<small class="text-muted">Показано перші 20 з ${companies.length} компаній</small>`;
+    }
+    
+    tableContainer.innerHTML = tableHTML;
+    resultsDiv.style.display = 'block';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Обробка файлу{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill"></i> Обробка файлу: {{ filename }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" id="progressBar">
+                            <span id="progressText">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="card bg-success bg-opacity-25 border-success">
+                                <div class="card-body text-center">
+                                    <h5 class="text-success" id="successCount">0</h5>
+                                    <small class="text-light">Успішно оброблено</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-danger bg-opacity-25 border-danger">
+                                <div class="card-body text-center">
+                                    <h5 class="text-danger" id="errorCount">0</h5>
+                                    <small class="text-light">Помилки</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-info bg-opacity-25 border-info">
+                                <div class="card-body text-center">
+                                    <h5 class="text-info" id="currentRow">0</h5>
+                                    <small class="text-light">Поточний рядок</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="logContainer" class="border rounded p-3" style="height: 300px; overflow-y: auto; background-color: var(--bs-dark); color: var(--bs-light);">
+                        <div class="text-light mb-2">
+                            <i class="bi bi-info-circle"></i> Лог обробки:
+                        </div>
+                        <div id="logMessages"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-3">
+                        <button type="button" class="btn btn-secondary" id="pauseBtn" onclick="pauseProcessing()">
+                            <i class="bi bi-pause-fill"></i> Призупинити
+                        </button>
+                        <button type="button" class="btn btn-primary" id="continueBtn" onclick="continueProcessing()" style="display:none;">
+                            <i class="bi bi-play-fill"></i> Продовжити
+                        </button>
+                        <a href="{{ url_for('main.file_manager') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Назад до файлів
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3" id="resultsCard" style="display:none;">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="bi bi-check-circle-fill"></i> Обробка завершена
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Всього рядків:</strong> <span id="totalRows">0</span></p>
+                            <p><strong>Успішно оброблено:</strong> <span id="finalSuccess">0</span></p>
+                            <p><strong>Помилок:</strong> <span id="finalErrors">0</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('main.companies') }}" class="btn btn-success">
+                                    <i class="bi bi-list-ul"></i> Переглянути компанії
+                                </a>
+                                <a href="{{ url_for('main.file_manager') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-folder2-open"></i> Менеджер файлів
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let processing = true;
+let currentBatch = 0;
+
+function addLogMessage(message, type = 'info') {
+    const logContainer = document.getElementById('logMessages');
+    const timestamp = new Date().toLocaleTimeString();
+    const iconClass = type === 'error' ? 'bi-exclamation-triangle-fill text-danger' : 
+                     type === 'success' ? 'bi-check-circle-fill text-success' : 
+                     'bi-info-circle-fill text-info';
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = 'mb-1 small';
+    logEntry.innerHTML = `<span class="text-muted">[${timestamp}]</span> <i class="bi ${iconClass}"></i> ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function updateProgress(current, total, success, errors) {
+    const percentage = Math.round((current / total) * 100);
+    document.getElementById('progressBar').style.width = percentage + '%';
+    document.getElementById('progressText').textContent = percentage + '%';
+    document.getElementById('successCount').textContent = success;
+    document.getElementById('errorCount').textContent = errors;
+    document.getElementById('currentRow').textContent = current;
+}
+
+function pauseProcessing() {
+    processing = false;
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('continueBtn').style.display = 'inline-block';
+    addLogMessage('Обробка призупинена користувачем', 'info');
+}
+
+function continueProcessing() {
+    processing = true;
+    document.getElementById('pauseBtn').style.display = 'inline-block';
+    document.getElementById('continueBtn').style.display = 'none';
+    addLogMessage('Обробка відновлена', 'info');
+    processNextBatch();
+}
+
+function showResults(total, success, errors) {
+    document.getElementById('totalRows').textContent = total;
+    document.getElementById('finalSuccess').textContent = success;
+    document.getElementById('finalErrors').textContent = errors;
+    document.getElementById('resultsCard').style.display = 'block';
+    document.getElementById('pauseBtn').style.display = 'none';
+    addLogMessage(`Обробка завершена. Всього: ${total}, Успішно: ${success}, Помилок: ${errors}`, 'success');
+}
+
+// Simulate processing for demo (replace with actual AJAX calls)
+function processNextBatch() {
+    if (!processing) return;
+    
+    // This would be replaced with actual AJAX call to process CSV
+    addLogMessage(`Обробка пакету ${currentBatch + 1}...`, 'info');
+    
+    // Simulate progress
+    setTimeout(() => {
+        currentBatch++;
+        const total = 100; // Would come from server
+        const current = Math.min(currentBatch * 10, total);
+        const success = Math.floor(current * 0.9);
+        const errors = current - success;
+        
+        updateProgress(current, total, success, errors);
+        
+        if (current >= total) {
+            showResults(total, success, errors);
+        } else if (processing) {
+            processNextBatch();
+        }
+    }, 1000);
+}
+
+// Start processing when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    addLogMessage('Початок аналізу файлу {{ filename }}', 'info');
+    analyzeFile();
+});
+
+function analyzeFile() {
+    fetch('/api/process-csv-simple/{{ filename }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addLogMessage(`Файл проаналізовано: ${data.total_lines} рядків`, 'success');
+                addLogMessage(`Валідних записів: ${data.success_count}`, 'info');
+                addLogMessage(`Помилкових записів: ${data.error_count}`, data.error_count > 0 ? 'error' : 'info');
+                
+                updateProgress(data.processed, data.total_lines, data.success_count, data.error_count);
+                
+                // Show sample data
+                if (data.sample_data && data.sample_data.length > 0) {
+                    addLogMessage('Приклади знайдених даних:', 'info');
+                    data.sample_data.forEach(company => {
+                        addLogMessage(`${company.edrpou}: ${company.name} (${company.kved})`, 'success');
+                    });
+                }
+                
+                addLogMessage(data.message, 'success');
+                showResults(data.total_lines, data.success_count, data.error_count);
+            } else {
+                addLogMessage('Помилка аналізу файлу: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            addLogMessage('Помилка запиту: ' + error.message, 'error');
+        });
+}
+</script>
+{% endblock %}

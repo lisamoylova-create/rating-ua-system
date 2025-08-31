@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Менеджер файлів{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Менеджер файлів</h2>
+                <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                    <i class="bi bi-upload"></i> Завантажити новий файл
+                </a>
+            </div>
+
+            {% if files %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Збережені файли ({{ files|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Назва файлу</th>
+                                    <th>Тип</th>
+                                    <th>Розмір</th>
+                                    <th>Дата створення</th>
+                                    <th>Дії</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>
+                                        {{ file.name }}
+                                    </td>
+                                    <td>
+                                        {% if file.name.endswith('.csv') %}
+                                            <span class="badge bg-info">CSV</span>
+                                        {% elif file.name.endswith(('.xlsx', '.xls')) %}
+                                            <span class="badge bg-success">Excel</span>
+                                        {% endif %}
+                                        
+                                        {% if file.name.startswith('converted_') %}
+                                            <span class="badge bg-warning">Конвертований</span>
+                                        {% elif file.name.startswith('imported_') %}
+                                            <span class="badge bg-primary">Імпортований</span>
+                                        {% elif file.name.startswith('actualization_') %}
+                                            <span class="badge bg-info">Актуалізація</span>
+                                        {% elif file.name.startswith('actualize_') %}
+                                            <span class="badge bg-secondary">Старий актуалізації</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ file.size_mb }} MB</td>
+                                    <td>{{ file.created_date }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            {% if file.name.startswith('actualization_') and file.name.endswith('.csv') %}
+                                                <!-- Кнопки для файлів актуалізації -->
+                                                <a href="{{ url_for('main.actualize_file', filename=file.name) }}" 
+                                                   class="btn btn-sm btn-info" title="Аналіз файлу актуалізації">
+                                                    <i class="bi bi-search"></i>
+                                                </a>
+                                                
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="actualize_external">
+                                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                                    <button type="submit" class="btn btn-sm btn-warning" 
+                                                            title="Обробити актуалізацію зовнішнім скриптом">
+                                                        <i class="bi bi-arrow-clockwise"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                {% if file.name.replace('.csv', '_actualized.csv') in files|map(attribute='name')|list %}
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="actualize_to_db">
+                                                    <input type="hidden" name="filename" value="{{ file.name.replace('.csv', '_actualized.csv') }}">
+                                                    <button type="submit" class="btn btn-sm btn-success" 
+                                                            title="Завершити актуалізацію (оновити базу)">
+                                                        <i class="bi bi-database-fill-up"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                                
+                                            {% elif '_processed.csv' in file.name %}
+                                                <!-- Кнопки для оброблених файлів імпорту -->
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="import_to_db">
+                                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                                    <button type="submit" class="btn btn-sm btn-success" 
+                                                            title="Завантажити в базу даних (з візуалізацією)">
+                                                        <i class="bi bi-database-add"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="bulk_import">
+                                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                                    <button type="submit" class="btn btn-sm btn-warning" 
+                                                            title="Швидке масове завантаження (блискавично швидко, без візуалізації)">
+                                                        <i class="bi bi-lightning-fill"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                            {% else %}
+                                                <!-- Кнопки для звичайних файлів -->
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="process">
+                                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                                    <button type="submit" class="btn btn-sm btn-info" 
+                                                            title="Аналіз файлу">
+                                                        <i class="bi bi-search"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                    <input type="hidden" name="action" value="process_external">
+                                                    <input type="hidden" name="filename" value="{{ file.name }}">
+                                                    <button type="submit" class="btn btn-sm btn-warning" 
+                                                            title="Обробити зовнішнім скриптом (створити _processed.csv)">
+                                                        <i class="bi bi-gear-fill"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            
+                                            <!-- Кнопка видалення для всіх файлів -->
+                                            <form method="post" action="{{ url_for('main.file_manager') }}" class="d-inline">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="filename" value="{{ file.name }}">
+                                                <button type="submit" class="btn btn-sm btn-danger" 
+                                                        onclick="return confirm('Видалити файл {{ file.name }}?')"
+                                                        title="Видалити файл">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-folder2-open display-1 text-muted mb-3"></i>
+                    <h4 class="text-muted">Файли відсутні</h4>
+                    <p class="text-muted">Завантажте Excel або CSV файли для початку роботи</p>
+                    <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Завантажити файл
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Інформація про файли</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li><strong>Конвертовані:</strong> Excel файли конвертовані в CSV</li>
+                                <li><strong>Імпортовані:</strong> Оригінальні CSV файли</li>
+                                <li><strong>Актуалізація:</strong> Файли для оновлення даних</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Наступні кроки</h6>
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                <li>Завантажте Excel файл з основними даними</li>
+                                <li>Система конвертує його в CSV</li>
+                                <li>Обробіть файл в базу даних</li>
+                                <li>Завантажте файл актуалізації (за потреби)</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

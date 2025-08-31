@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}{{ ranking.name }} - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Головна</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.rankings_list') }}">Рейтинги</a></li>
+                    <li class="breadcrumb-item active">{{ ranking.name }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 text-light mb-0">
+                    <i class="bi bi-trophy"></i> {{ ranking.name }}
+                </h1>
+                <div>
+                    <a href="{{ url_for('main.export_ranking_pdf', ranking_id=ranking.id) }}" 
+                       class="btn btn-danger">
+                        <i class="bi bi-filetype-pdf"></i> Експорт PDF
+                    </a>
+                    <a href="{{ url_for('main.rankings_list') }}" 
+                       class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Назад до списку
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ranking Info -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle"></i> Інформація про рейтинг
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ID рейтингу:</strong> <code>{{ ranking.id }}</code></p>
+                            <p><strong>Назва:</strong> {{ ranking.name }}</p>
+                            <p><strong>Кількість компаній:</strong> 
+                                <span class="badge bg-primary">{{ ranking.companies_count or companies|length }}</span>
+                            </p>
+                            <p><strong>Статус:</strong>
+                                {% if ranking.is_active %}
+                                    <span class="badge bg-success">Активний</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Архівний</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Створено:</strong> 
+                                {{ ranking.created_at.strftime('%d.%m.%Y о %H:%M') if ranking.created_at else 'Невідомо' }}
+                            </p>
+                            {% if selection_base %}
+                            <p><strong>Критерії відбору:</strong></p>
+                            <ul class="small text-muted mb-0">
+                                {% if selection_base.min_employees %}
+                                <li>Працівників: ≥ {{ selection_base.min_employees }}</li>
+                                {% endif %}
+                                {% if selection_base.min_revenue %}
+                                <li>Дохід: ≥ {{ "{:,}".format(selection_base.min_revenue) }} грн</li>
+                                {% endif %}
+                                {% if selection_base.min_profit %}
+                                <li>Прибуток: ≥ {{ "{:,}".format(selection_base.min_profit) }} грн</li>
+                                {% endif %}
+                            </ul>
+                            {% endif %}
+                            
+                            {% if ranking.region_filter or ranking.kved_filter or ranking.size_filter %}
+                            <p><strong>Додаткові фільтри:</strong></p>
+                            <ul class="small text-muted">
+                                {% if ranking.region_filter %}
+                                <li>Регіон: {{ ranking.region_filter }}</li>
+                                {% endif %}
+                                {% if ranking.kved_filter %}
+                                <li>КВЕД: {{ ranking.kved_filter }}</li>
+                                {% endif %}
+                                {% if ranking.size_filter %}
+                                <li>Розмір: {{ ranking.size_filter }}</li>
+                                {% endif %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-graph-up"></i> Статистика
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h2 class="text-success">{{ companies|length }}</h2>
+                        <p class="text-muted mb-0">Компаній у рейтингу</p>
+                    </div>
+                    
+                    {% if companies %}
+                    <hr class="border-secondary">
+                    <div class="small">
+                        <p class="mb-1"><strong>Лідер рейтингу:</strong></p>
+                        <p class="text-warning mb-2">{{ companies[0][1].name if companies else 'Немає даних' }}</p>
+                        
+                        <p class="mb-1"><strong>ЄДРПОУ лідера:</strong></p>
+                        <p class="mb-0"><code>{{ companies[0][1].edrpou if companies else '-' }}</code></p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Companies Table -->
+    <div class="card bg-dark border-secondary">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-building"></i> Компанії в рейтингу
+                <span class="badge bg-primary ms-2">{{ companies|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if companies %}
+            <div class="table-responsive">
+                <table class="table table-hover table-dark">
+                    <thead>
+                        <tr>
+                            <th width="60">#</th>
+                            <th>ЄДРПОУ</th>
+                            <th>Назва компанії</th>
+                            <th>Регіон</th>
+                            <th>КВЕД</th>
+                            <th>Працівники</th>
+                            <th>Дохід, грн</th>
+                            <th>Прибуток, грн</th>
+                            <th width="100">Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ranking_company, company in companies %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-warning text-dark fw-bold">
+                                    #{{ ranking_company.position }}
+                                </span>
+                            </td>
+                            <td><code>{{ company.edrpou }}</code></td>
+                            <td>
+                                <strong>{{ company.name }}</strong>
+                                {% if company.company_size_name %}
+                                <br><small class="text-muted">{{ company.company_size_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if company.region_name %}
+                                    <span class="badge bg-secondary">{{ company.region_name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if company.kved_code %}
+                                    <span class="badge bg-info">{{ company.kved_code }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if company.personnel_2019 %}
+                                    {{ "{:,}".format(company.personnel_2019) }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if company.revenue_2019 %}
+                                    {{ "{:,}".format(company.revenue_2019) }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if company.profit_2019 %}
+                                    {{ "{:,}".format(company.profit_2019) }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="showCompanyDetails('{{ company.id }}')" 
+                                        title="Детальна інформація">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-building text-muted" style="font-size: 3rem;"></i>
+                <h4 class="text-muted mt-3">Компаній у рейтингу немає</h4>
+                <p class="text-muted">Можливо, рейтинг ще не був сформований або всі компанії були відфільтровані</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Company Details Modal -->
+<div class="modal fade" id="companyModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Детальна інформація про компанію</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="companyDetails">
+                <div class="text-center py-3">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Завантаження...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCompanyDetails(companyId) {
+    const modal = new bootstrap.Modal(document.getElementById('companyModal'));
+    const detailsDiv = document.getElementById('companyDetails');
+    
+    // Show loading
+    detailsDiv.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Завантаження...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Load company details
+    fetch(`/api/company/${companyId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const company = data.company;
+                detailsDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Основна інформація</h6>
+                            <p><strong>ЄДРПОУ:</strong> <code>${company.edrpou}</code></p>
+                            <p><strong>Назва:</strong> ${company.name}</p>
+                            <p><strong>Регіон:</strong> ${company.region_name || '-'}</p>
+                            <p><strong>КВЕД:</strong> ${company.kved_code ? `${company.kved_code} - ${company.kved_description || ''}` : '-'}</p>
+                            <p><strong>Розмір:</strong> ${company.company_size_name || '-'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Фінансові показники</h6>
+                            <p><strong>Персонал 2019:</strong> ${company.personnel_2019 ? company.personnel_2019.toLocaleString() : '-'}</p>
+                            <p><strong>Дохід:</strong> ${company.revenue_2019 ? company.revenue_2019.toLocaleString() + ' грн' : '-'}</p>
+                            <p><strong>Прибуток:</strong> ${company.profit_2019 ? company.profit_2019.toLocaleString() + ' грн' : '-'}</p>
+                            <p><strong>Рейтинг позиція:</strong> ${company.ranking ? '#' + company.ranking : '-'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                detailsDiv.innerHTML = '<div class="alert alert-danger">Помилка завантаження даних компанії</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            detailsDiv.innerHTML = '<div class="alert alert-danger">Помилка завантаження даних</div>';
+        });
+}
+</script>
+{% endblock %}

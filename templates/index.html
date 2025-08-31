@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Головна - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-house"></i> Панель управління</h1>
+        </div>
+    </div>
+</div>
+
+{% if current_user.is_authenticated %}
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-building fs-1 me-3"></i>
+                    <div>
+                        <h5 class="card-title">Компанії</h5>
+                        <h2 class="mb-0">{{ stats.total_companies }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-geo-alt fs-1 me-3"></i>
+                    <div>
+                        <h5 class="card-title">Регіони</h5>
+                        <h2 class="mb-0">{{ stats.total_regions }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-tag fs-1 me-3"></i>
+                    <div>
+                        <h5 class="card-title">КВЕД коди</h5>
+                        <h2 class="mb-0">{{ stats.total_kved }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-clock fs-1 me-3"></i>
+                    <div>
+                        <h5 class="card-title">Останні оновлення</h5>
+                        <h2 class="mb-0">{{ stats.recent_companies|length }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Швидкі дії</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if current_user.has_permission('upload') %}
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('main.upload') }}" class="btn btn-primary btn-lg">
+                                <i class="bi bi-upload"></i>
+                                Завантажити файл
+                            </a>
+                        </div>
+                        <small class="text-muted">Завантажити Excel або CSV файл з даними компаній</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if current_user.has_permission('view') %}
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('main.companies') }}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-list-ul"></i>
+                                Переглянути компанії
+                            </a>
+                        </div>
+                        <small class="text-muted">Переглянути список усіх компаній та їх дані</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if current_user.has_permission('edit') %}
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('main.filter_companies_route') }}" class="btn btn-info btn-lg">
+                                <i class="bi bi-filter-circle"></i>
+                                Відбір для рейтингу
+                            </a>
+                        </div>
+                        <small class="text-muted">Обмеження бази для рейтингу</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KVED Statistics -->
+{% if current_user.has_permission('view') %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Кількість компаній по КВЕД</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Код КВЕД</th>
+                                <th>Основний вид діяльності (КВЕД)</th>
+                                <th>Загальна кількість в базі до відбору</th>
+                                <th>Загальна кількість в базі після відбору</th>
+                                <th>Актуалізовано</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for kved_stat in stats.kved_statistics %}
+                            <tr>
+                                <td><code>{{ kved_stat.code or 'Не вказано' }}</code></td>
+                                <td>{{ kved_stat.description or 'Не вказано' }}</td>
+                                <td><span class="badge bg-primary">{{ kved_stat.total_count }}</span></td>
+                                <td>
+                                    {% if kved_stat.after_selection == 0 %}
+                                        <span class="text-muted">Відбір не створений</span>
+                                    {% else %}
+                                        <span class="badge bg-success">{{ kved_stat.after_selection }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><small class="text-muted">{{ kved_stat.selection_criteria or 'Відбір не проводився' }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if not stats.kved_statistics %}
+                <div class="text-center py-3">
+                    <p class="text-muted mb-0">Статистика з'явиться після завантаження файлів</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Companies -->
+{% if current_user.has_permission('view') and stats.recent_companies %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Останні додані компанії</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ЄДРПОУ</th>
+                                <th>Назва компанії</th>
+                                <th>Регіон</th>
+                                <th>КВЕД</th>
+                                <th>Дата додавання</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for company in stats.recent_companies %}
+                            <tr>
+                                <td><code>{{ company.edrpou }}</code></td>
+                                <td>{{ company.name }}</td>
+                                <td>
+                                    {% if company.region_name %}
+                                        <span class="badge bg-secondary">{{ company.region_name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Не вказано</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if company.kved_code %}
+                                        <span class="badge bg-info">{{ company.kved_code }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Не вказано</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ company.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('main.companies') }}" class="btn btn-outline-primary">
+                        Переглянути всі компанії <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Not authenticated view -->
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-shield-lock fs-1 text-primary mb-3"></i>
+                <h3>Ласкаво просимо!</h3>
+                <p class="text-muted">
+                    Система обробки даних українських компаній з Excel файлів.
+                    Для доступу до функціоналу необхідно увійти в систему.
+                </p>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> Увійти
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

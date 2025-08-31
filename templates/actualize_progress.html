@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Актуалізація файлу{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-arrow-clockwise"></i> Актуалізація файлу: {{ filename }}</h2>
+                <a href="{{ url_for('main.file_manager') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад до файлів
+                </a>
+            </div>
+
+            <!-- Progress Status -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Статус актуалізації</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="status-message" class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    Аналіз файлу актуалізації...
+                                </div>
+                            </div>
+                            
+                            <div id="progress-section" style="display: none;">
+                                <div class="progress mb-3">
+                                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                                <p id="progress-text" class="mb-0">Підготовка...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-list-check"></i> Статистика</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="stats">
+                                <p class="mb-1"><strong>Загальних записів:</strong> <span id="total-lines">-</span></p>
+                                <p class="mb-1"><strong>Валідних ЄДRПОУ:</strong> <span id="valid-count">-</span></p>
+                                <p class="mb-0"><strong>Помилкових:</strong> <span id="error-count">-</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sample Data -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-table"></i> Приклад даних для актуалізації</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="sample-data">
+                                <p class="text-muted">Завантаження прикладу даних...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filename = '{{ filename }}';
+    const statusMessage = document.getElementById('status-message');
+    const progressSection = document.getElementById('progress-section');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const totalLines = document.getElementById('total-lines');
+    const validCount = document.getElementById('valid-count');
+    const errorCount = document.getElementById('error-count');
+    const sampleData = document.getElementById('sample-data');
+
+    // Start processing
+    fetch(`/api/actualize-csv/${filename}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                statusMessage.innerHTML = `
+                    <div class="d-flex align-items-center text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Помилка:</strong> ${data.error}
+                    </div>
+                `;
+                statusMessage.className = 'alert alert-danger';
+                return;
+            }
+
+            // Update stats
+            totalLines.textContent = data.total_lines || 0;
+            validCount.textContent = data.valid_edrpou_count || 0;
+            errorCount.textContent = data.invalid_count || 0;
+
+            // Show sample data
+            if (data.sample_data && data.sample_data.length > 0) {
+                let tableHtml = `
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>ЄДRПОУ</th>
+                                <th>Ім'я</th>
+                                <th>Прізвище</th>
+                                <th>Робочий телефон</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.sample_data.forEach(item => {
+                    tableHtml += `
+                        <tr>
+                            <td>${item.edrpou}</td>
+                            <td>${item.first_name}</td>
+                            <td>${item.last_name}</td>
+                            <td>${item.work_phone}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHtml += '</tbody></table>';
+                sampleData.innerHTML = tableHtml;
+            } else {
+                sampleData.innerHTML = '<p class="text-muted">Немає даних для відображення</p>';
+            }
+
+            // Update status
+            if (data.status === 'ready_for_processing') {
+                statusMessage.innerHTML = `
+                    <div class="d-flex align-items-center text-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Готово:</strong> ${data.message}
+                    </div>
+                `;
+                statusMessage.className = 'alert alert-success';
+                
+                // Show progress as complete
+                progressSection.style.display = 'block';
+                progressBar.style.width = '100%';
+                progressBar.className = 'progress-bar bg-success';
+                progressText.textContent = `Файл проаналізовано. Готово для обробки ${data.valid_edrpou_count} компаній.`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            statusMessage.innerHTML = `
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Помилка мережі:</strong> ${error.message}
+                </div>
+            `;
+            statusMessage.className = 'alert alert-danger';
+        });
+});
+</script>
+{% endblock %}

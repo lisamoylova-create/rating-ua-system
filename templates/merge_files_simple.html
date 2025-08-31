@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Злиття файлів - Рейтинг.UA{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-union"></i> Злиття файлів Excel (ВПР)</h1>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-spreadsheet"></i> Завантаження файлів для злиття</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Інструкція по злиттю файлів:</h6>
+                    <ol>
+                        <li><strong>Основний файл</strong> - базова таблиця з 11 колонками</li>
+                        <li><strong>Додатковий файл</strong> - розширена інформація з 17 додаткових колонок</li>
+                        <li>Файли об'єднуються за колонкою <strong>"Код ЄДРПОУ"</strong> (функція ВПР)</li>
+                        <li>Результат буде містити <strong>33 колонки</strong> включно з технічними даними</li>
+                    </ol>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="main_file" class="form-label">
+                                <i class="bi bi-file-earmark-excel"></i> Основний файл (11 колонок)
+                            </label>
+                            <input type="file" class="form-control" id="main_file" name="main_file" 
+                                   accept=".xlsx,.xls,.csv" required>
+                            <div class="form-text">Базова таблиця з компаніями</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="additional_file" class="form-label">
+                                <i class="bi bi-file-earmark-plus"></i> Додатковий файл (17 колонок)
+                            </label>
+                            <input type="file" class="form-control" id="additional_file" name="additional_file" 
+                                   accept=".xlsx,.xls,.csv" required>
+                            <div class="form-text">Розширена інформація для доповнення</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="ranking_name" class="form-label">Назва рейтингу</label>
+                        <input type="text" class="form-control" id="ranking_name" name="ranking_name" 
+                               value="Рейтинг 2025" maxlength="255">
+                        <div class="form-text">Назва для майбутнього рейтингу та експорту</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-union"></i> Об'єднати файли (ВПР)
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        {% if merged %}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Результат злиття</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary">{{ merge_stats.total_main }}</h4>
+                            <small>Записів в основному файлі</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info">{{ merge_stats.total_additional }}</h4>
+                            <small>Записів в додатковому файлі</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success">{{ merge_stats.matched }}</h4>
+                            <small>Знайдено співпадінь</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ merge_stats.not_actualized }}</h4>
+                            <small>Не актуалізовано</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2 mb-3">
+                    <a href="{{ url_for('main.export_merged_csv') }}" class="btn btn-success">
+                        <i class="bi bi-download"></i> Експорт CSV (33 колонки)
+                    </a>
+                    <button class="btn btn-info" onclick="togglePreview()">
+                        <i class="bi bi-eye"></i> Показати/Сховати попередній перегляд
+                    </button>
+                </div>
+                
+                <div id="preview-container" style="display: none;">
+                    <h6>Попередній перегляд (перші 10 записів):</h6>
+                    <div class="table-responsive">
+                        {{ preview_data|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-gear"></i> Технічні колонки</h6>
+            </div>
+            <div class="card-body">
+                <p>При злитті автоматично додаються:</p>
+                <ul class="list-unstyled">
+                    <li><strong>Источник:</strong> "Україна 2025"</li>
+                    <li><strong>ТОП:</strong> Кількість компаній у рейтингу</li>
+                    <li><strong>Загальна к-ть:</strong> Загальна кількість по категорії</li>
+                    <li><strong>Актуалізовано:</strong> "так"/"ні" за наявністю в додатковому файлі</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-list-check"></i> Вимоги до файлів</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-check text-success"></i> Формат: .xlsx, .xls, .csv</li>
+                    <li><i class="bi bi-check text-success"></i> Колонка "Код ЄДРПОУ" в обох файлах</li>
+                    <li><i class="bi bi-check text-success"></i> Українські назви колонок підтримуються</li>
+                    <li><i class="bi bi-check text-success"></i> Макс. розмір: 16 MB</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePreview() {
+    var container = document.getElementById('preview-container');
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
