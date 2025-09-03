@@ -1774,21 +1774,26 @@ def get_company_details(company_id):
         if not company:
             return {'success': False, 'error': 'Компанію не знайдено'}, 404
         
-        # Get ranking history for this company
-        from sqlalchemy import text
-        ranking_history_result = db.session.execute(text(
-            "SELECT ranking_name, ranking_position, ranking_criteria, source_name, created_at FROM company_ranking_history WHERE company_id = :company_id ORDER BY created_at DESC"
-        ), {'company_id': company.id})
-        
+        # Get ranking history for this company (safe version)
         ranking_history = []
-        for row in ranking_history_result:
-            ranking_history.append({
-                'ranking_name': row[0],
-                'ranking_position': row[1], 
-                'ranking_criteria': row[2],
-                'source_name': row[3],
-                'created_at': row[4].isoformat() if row[4] else None
-            })
+        try:
+            from sqlalchemy import text
+            # Спробуємо отримати історію рейтингів, якщо таблиця існує
+            ranking_history_result = db.session.execute(text(
+                "SELECT ranking_name, ranking_position, ranking_criteria, source_name, created_at FROM company_ranking_history WHERE company_id = :company_id ORDER BY created_at DESC"
+            ), {'company_id': company.id})
+            
+            for row in ranking_history_result:
+                ranking_history.append({
+                    'ranking_name': row[0],
+                    'ranking_position': row[1], 
+                    'ranking_criteria': row[2],
+                    'source_name': row[3],
+                    'created_at': row[4].isoformat() if row[4] else None
+                })
+        except Exception as e:
+            # Якщо таблиця неповна або відсутні колонки - просто ігноруємо
+            ranking_history = []
         
         # Convert to dict with all fields
         company_data = {
